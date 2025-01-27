@@ -53,7 +53,7 @@ else{
             />
             {errors.password && <p className="text-red-500 text-sm mt-1">Password is required</p>}
           </div>
-          <p className="flex">Didn't have an account yet?<a href="" onClick={()=>nav('/document/register')} className="text-sm text-blue-500 hover:text-blue-600 underline block text-right mb-6 ml-0.5 mt-0.5">Create account</a></p>
+          <p className="flex">Didn't have an account yet?<a href="" onClick={()=>nav('/document//register')} className="text-sm text-blue-500 hover:text-blue-600 underline block text-right mb-6 ml-0.5 mt-0.5">Create account</a></p>
           <div>
             <button 
               type="submit" 
