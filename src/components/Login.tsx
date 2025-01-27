@@ -21,7 +21,7 @@ if(response?.status === 200){
 
 
 reset();
-nav('/document/')
+nav('/')
 
 }
 else{
