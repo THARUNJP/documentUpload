@@ -1,7 +1,7 @@
 import { Button } from "../components/ui/button"
 import { Card } from "../components/ui/card"
 import { Trash2, Plus, ArrowLeft, ArrowRight, Upload, File } from "lucide-react"
-import React, { useState, useRef } from "react"
+import React, { useState, useRef,useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { applicantType} from "../interface/interface";
 import {
@@ -15,7 +15,11 @@ DialogDescription,
 import { Input } from "./ui/input";
 import { X, Check } from "lucide-react";
 import { DialogClose } from "@radix-ui/react-dialog";
-import {v4 as uuid} from "uuid"
+import {v4 as uuid} from "uuid";
+import { useNavigate } from "react-router-dom";
+import { applicantSave, dcoumentSave, deleteApplicant, fileDeleter, fileUploader, retriveData, tokenVerification } from "../service/service.ts";
+
+
 
 
 function Home() {
@@ -26,13 +30,41 @@ const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
 const fileInputRef = useRef<HTMLInputElement>(null);
 const [selectedDoc,setSelectedDoc]= useState<number>(0);
 const[isLoading,setIsLoading]=useState<boolean>(false);
-const actionState = useRef<string>("pending")
+
+const nav= useNavigate();
+
+useEffect(()=>{
+verifyToken();
+},[])
+
+
+async function verifyToken() {
+  const token: String | null = localStorage.getItem("token");
+  if (token) {
+    const response = await tokenVerification(token);
+    if(response !== "valid") {
+      nav('/document/login')
+    }
+    else{
+      const data = await retriveData();
+      if(data !== 400) {
+        setApplicants(data);
+      }
+      
+
+    } 
+  } 
+  else{
+    nav('/document/login')
+  }
+}
 
 const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
 if (event.target.files) {
 const files = Array.from(event.target.files);
 setDroppedFiles(prev => [...prev, ...files]);
 if (fileInputRef.current) {
+
 fileInputRef.current.value = '';
 }
 }
@@ -48,38 +80,50 @@ const handleDragOver = (e: React.DragEvent) => {
 e.preventDefault()
 }
 
-const formatFileSize = (bytes: number) => {
-if (bytes === 0) return '0 Bytes';
-const k = 1024;
-const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-const i = Math.floor(Math.log(bytes) / Math.log(k));
-return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+
+
+const removeFile = async(data:applicantType) => {
+ 
+  const doc_id = data.documents[selectedDoc].doc_id;
+
+  await fileDeleter(doc_id)
+
+  const ind = applicants.findIndex((e)=>e.id === selectedApplicant);
+  applicants[ind].documents[selectedDoc].document=null
+  applicants[ind].documents[selectedDoc].status='pending'
+  
+  
+  
+  
+setDroppedFiles([]);
+
+
 };
 
-const removeFile = (index: number) => {
-setDroppedFiles(prev => prev.filter((_, i) => i !== index));
-actionState.current="pending";
-
-};
-
-function saveApplicant(){
+async function saveApplicant(){
 if(input){
-setApplicants((P)=>[...P,{id:uuid(),name:input,documents:[]}])
-}
+  const lastApplicant = {id:uuid(),name:input,documents:[]};
+setApplicants((P)=>[...P,lastApplicant]);
+const valid = await applicantSave(lastApplicant);
+if(valid !== 'inserted') alert("unautthorized access")
 setInput("")
 }
+}
+
 
 function clearInput(){
 setInput("")
 }
 
 function saveDocument() {
+  const document={doc_id:uuid(),doc_name:input ||"",document:null,status:'pending'}
+   dcoumentSave(document,selectedApplicant);
 setApplicants((prev) =>
 prev.map((applicant) =>
 applicant.id === selectedApplicant
 ? {
 ...applicant,
-documents: [...(applicant.documents || []), input],
+documents: [...(applicant.documents || []),document],
 }
 : applicant
 )
@@ -87,12 +131,16 @@ documents: [...(applicant.documents || []), input],
 setInput(""); 
 }
 
-function removeApplicant(id:string){
+async function removeApplicant(id:string){
+
 setApplicants((prev)=>
 prev.filter((e)=>e.id !== id)
 )
+await deleteApplicant(id);
+
 }
 function nextButton() {
+  setDroppedFiles([])
   const applicant = applicants.find((e) => e.id === selectedApplicant);
   const noOfDocs = applicant?.documents.length;
   const index = applicants.findIndex((e) => e.id === selectedApplicant);
@@ -109,6 +157,7 @@ function nextButton() {
 }
 
 function backButton() {
+  setDroppedFiles([])
   const applicant = applicants.find((e) => e.id === selectedApplicant);
   const noOfDocs = applicant?.documents.length;
   const index = applicants.findIndex((e) => e.id === selectedApplicant);
@@ -124,18 +173,38 @@ function backButton() {
     setSelectedDoc(prevApplicantDocs ? prevApplicantDocs - 1 : 0);
   }
 }
-function fileUpload(){
-
+async function fileUpload(applicant:applicantType){
   if(droppedFiles.length > 0){
+    const doc_id = applicant.documents[selectedDoc].doc_id
+   fileUploader(droppedFiles[0],doc_id);
+   applicants
+   
+setApplicants((prev) =>
+prev.map((e) =>
+e.id === selectedApplicant
+? {
+...e,
+documents: e.documents.map((d, i) =>
+i === selectedDoc
+? { ...d, document: droppedFiles[0],status:'completed'}
+: d
+),
+}
+: e
+)
+);
+
   setIsLoading(true);
   setTimeout(()=>{
 setIsLoading(false)
-actionState.current="completed"
+
   },2000)
 }
+console.log(applicants[0]);
 
 }
 
+console.log(applicants);
 
 return (
 <div className="min-h-screen flex flex-col px-5 py-12">
@@ -189,7 +258,7 @@ return (
 {applicants.map((applicant, index) => (
 <div key={index} className="flex flex-col items-center gap-3 relative cursor-pointer group" onClick={() => setSelectedApplicant(applicant.id)}>
 <div className="flex items-center gap-3 ml-5">
-<span className={`text-lg ${selectedApplicant === applicant.id ? 'text-[#4785FF]' : 'text-gray-600'}`}>
+<span className={`text-lg ${selectedApplicant === applicant.id ? 'text-[#4785FF]' : 'text-gray-600'} font-semibold`}>
 {applicant.name}
 </span>
 <Button variant="ghost" size="icon" className="h-12 w-12 bg-[#4785FF] hover:bg-blue-600 p-2" onClick={()=>removeApplicant(applicant.id)}>
@@ -221,11 +290,15 @@ const selectedApplicantData = applicants.find((e) => e.id === selectedApplicant)
 if (selectedApplicantData) {
 return selectedApplicantData.documents.length > 0 ? (
   selectedApplicantData.documents.map((a, i) => (
-    selectedDoc === i ? <Button key={i} className="bg-[#4785FF] hover:bg-blue-600 h-14 w-28 text-base font-normal">
-      {a}
+    selectedDoc === i ? <Button key={i} className="bg-[#4785FF] hover:bg-blue-600 h-14 w-28 text-base font-meduim">
+      {a.doc_name}
     </Button> :
-    <Button key={i} className="bg-blue-200 hover:bg-blue-600 h-14 w-28 text-gray-500 text-base font-normal" onClick={()=>setSelectedDoc(i)}>
-      {a}
+    <Button key={i} className="bg-blue-200 hover:bg-blue-600 h-14 w-28 text-gray-500 text-base font-meduim" onClick={()=>{
+      setSelectedDoc(i);
+      setDroppedFiles([])
+    
+      }}>
+      {a.doc_name}
     </Button>
   ))
 ) : (
@@ -300,10 +373,10 @@ return (
     >
       <Plus className="h-6 w-6" /> Choose
     </label>
-    <Button variant="secondary" className="bg-blue-400 hover:bg-blue-200 text-white px-6 py-3 text-lg" onClick={fileUpload}>
+    <Button variant="secondary" className="bg-blue-400 hover:bg-blue-200 text-white px-6 py-3 text-lg" onClick={()=>fileUpload(selectedApplicantData)}>
       <Upload className="!h-6 !w-6" /> Upload
     </Button>
-    <Button variant="secondary" className="bg-blue-400 hover:bg-blue-200 text-white px-6 py-3 text-lg" onClick={()=>removeFile(0)}>
+    <Button variant="secondary" className="bg-blue-400 hover:bg-blue-200 text-white px-6 py-3 text-lg" onClick={()=>removeFile(selectedApplicantData)}>
       <X className="!h-6 !w-6" /> Cancel
     </Button>
   </div>
@@ -322,24 +395,33 @@ return (
       transition={{ duration: 2, ease: "easeInOut" }}
     />
   )}
-    {droppedFiles.length === 0 ? (
+    {droppedFiles.length === 0 && !applicants.find((e) => e.id === selectedApplicant)?.documents.find((_,i)=>i ===selectedDoc)  ? (
       <p className="">Drag and Drop files here.</p>
     ) : (
       <div className="space-y-4">
-        {droppedFiles.map((file, index) => (
-          <div key={index} className="flex items-center justify-between  p-3 rounded-lg">
-            <div className="flex items-center gap-3">
-              <File className="h-5 w-5 text-blue-500" />
+
+{(() => {
+  console.log(selectedDoc,);
+  
+  const docs = applicants.find((e) => e.id === selectedApplicant)?.documents.find((_,i)=>i ===selectedDoc) ;
+console.log(docs?.status,"hi");
+
+  return docs ? 
+  <div className="flex items-center justify-between  p-3 rounded-lg">
+     <div className="flex items-center gap-3">
+             {docs.document || droppedFiles.length >0 ? <File className="h-5 w-5 text-blue-500" />:null} 
               <div>
-                <p className="text-sm font-medium text-gray-700">{file.name}</p>
-                <p className="text-xs text-gray-500">{formatFileSize(file.size)} <button style={{ backgroundColor: actionState.current === "pending" ? "orange" : "#66cc88", color: "white", padding: "0.25rem 0.5rem", borderRadius: "1rem", marginLeft: "4px", fontWeight: 700 }}>{actionState.current}</button></p>
+                {docs.document ? <p className="text-sm font-medium text-gray-700">{docs?.document?.name}</p> :droppedFiles.length > 0 && <p className="text-sm font-medium text-gray-700">{droppedFiles[0].name}</p>}
+          
+                 {docs.document ? <p className="text-xs text-gray-500">{(docs?.document?.size / 1024).toFixed(2)}KB<button style={{ backgroundColor: docs?.status === "pending" ? "orange" : "#66cc88", color: "white", padding: "0.25rem 0.5rem", borderRadius: "1rem", marginLeft: "4px", fontWeight: 700 }}>{docs?.status}</button></p>:droppedFiles.length > 0 &&<p className="text-xs text-gray-500">{(droppedFiles[0].size / 1024).toFixed(2)}KB<button style={{ backgroundColor: "orange", color: "white", padding: "0.25rem 0.5rem", borderRadius: "1rem", marginLeft: "4px", fontWeight: 700 }}>pending</button></p>}
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-500" onClick={() => removeFile(index)}>
+          { docs.document ||droppedFiles.length > 0 ? <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-500" onClick={() => removeFile(selectedApplicantData)}>
               <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
+            </Button>:null}
+    </div> :
+   null;
+})()}
       </div>
     )}
   </div>
