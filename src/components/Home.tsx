@@ -43,7 +43,7 @@ async function verifyToken() {
   if (token) {
     const response = await tokenVerification(token);
     if(response !== "valid") {
-      nav('/document/login')
+      nav('/login')
     }
     else{
       const data = await retriveData();
@@ -55,7 +55,7 @@ async function verifyToken() {
     } 
   } 
   else{
-    nav('/document/login')
+    nav('/login')
   }
 }
 
