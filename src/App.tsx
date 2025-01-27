@@ -10,7 +10,7 @@ function App() {
 return (
 <>
 
-<Router basename="/document">
+<Router basename="/documentUpload">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
