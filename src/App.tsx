@@ -14,7 +14,7 @@ return (
 <Routes>
 <Route path="/document/" element={<Home />} />
 <Route path="/document/login" element={<Login />} />
-<Route path="/document//register" element={<Register />} />
+<Route path="/document/register" element={<Register />} />
 </Routes>
 </Router>
 
