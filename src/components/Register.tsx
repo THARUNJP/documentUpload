@@ -61,7 +61,7 @@ return(
           />
           {errors.password && <p className="text-red-500 text-sm mt-1">Password is required</p>}
         </div>
-        <p className="flex">Already have an account?<a href="" onClick={()=>nav('/login')} className="text-sm text-blue-500 hover:text-blue-600 underline block text-right mb-6 ml-0.5 mt-0.5">Sign In</a></p>
+        <p className="flex">Already have an account?<a onClick={()=>nav('/login')} className="text-sm text-blue-500 hover:text-blue-600 underline block text-right mb-6 ml-0.5 mt-0.5 cursor-pointer">Sign In</a></p>
         <div>
           <button 
             type="submit" 
